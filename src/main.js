@@ -14,7 +14,8 @@ var map = new mapboxgl.Map({
     // container id specified in the HTML
     container: 'map',
     // style URL
-    style: 'mapbox://styles/mapbox/satellite-v9',
+    //style: 'mapbox://styles/mapbox/satellite-v9',
+    style: 'mapbox://styles/mapbox/streets-v11',
     // initial position in [long, lat] format
     center: [6.5747032, 36.2514395],
     // initial zoom
@@ -51,9 +52,11 @@ map.on('click', function (event) {
         .addTo(map);
 
     el.addEventListener('click', function (e) {
-        console.log(marker);
 
         e.stopPropagation();
+
+        $('#lon').val(event.lngLat.lng);
+        $('#lat').val(event.lngLat.lat);
 
         createEditPopUp(event.lngLat);
 
@@ -63,26 +66,10 @@ map.on('click', function (event) {
 
 var stores = {
     "type": "FeatureCollection",
-    "features": [
-        {
-            "type": "Feature",
-            "geometry": {
-                "type": "Point",
-                "coordinates": [
-                    6.5747032,
-                    36.2514395
-                ]
-            },
-            "properties": {
-                "id": 1,
-                "nom": "Benchibota",
-                "prenom": "Aboubaker",
-                "phone": "07 70 66 77 98",
-                "address": "Cité alhayat n° 149, Didouche Morad"
-            }
-
-        }]
+    "features": []
 };
+
+
 // This adds the data to the map
 map.on('load', function (e) {
     // This is where your '.addLayer()' used to be, instead add only the source without styling a layer
@@ -91,41 +78,8 @@ map.on('load', function (e) {
         "data": stores
     });
     // Initialize the list
-    buildLocationList(stores);
+    buildLocationList();
 
-});
-
-// This is where your interactions with the symbol layer used to be
-// Now you have interactions with DOM markers instead
-stores.features.forEach(function (marker, i) {
-    // Create an img element for the marker
-    var el = document.createElement('div');
-    el.id = "marker-" + i;
-    el.className = 'marker';
-    // Add markers to the map at all points
-    new mapboxgl.Marker(el, {offset: [0, -23]})
-        .setLngLat(marker.geometry.coordinates)
-        .addTo(map);
-
-    el.addEventListener('click', function (e) {
-        // 1. Fly to the point
-        flyToStore(marker);
-
-        // 2. Close all other popups and display popup for clicked store
-        createPopUp(marker);
-
-        // 3. Highlight listing in sidebar (and remove highlight for all other listings)
-        var activeItem = document.getElementsByClassName('active');
-
-        e.stopPropagation();
-        if (activeItem[0]) {
-            activeItem[0].classList.remove('active');
-        }
-
-        var listing = document.getElementById('listing-' + i);
-        listing.classList.add('active');
-
-    });
 });
 
 
@@ -140,20 +94,73 @@ function createPopUp(currentFeature) {
     var popUps = document.getElementsByClassName('mapboxgl-popup');
     if (popUps[0]) popUps[0].remove();
 
+    var newmarker = document.getElementById('marker-new');
+    // noinspection EqualityComparisonWithCoercionJS
+    if (newmarker != undefined)
+        newmarker.remove();
 
     var popup = new mapboxgl.Popup({closeOnClick: false})
         .setLngLat(currentFeature.geometry.coordinates)
         .setHTML('<h3>' + currentFeature.properties.nom + ' ' + currentFeature.properties.prenom + '</h3>' +
-            '<h4> adresse : ' + currentFeature.properties.address + '</h4>' +
-            '<h4> tel : ' + currentFeature.properties.phone + '</h4>'
+            '<div style="padding: 6px">' +
+            '<p> adresse : ' + currentFeature.properties.address + '</p>' +
+            '<p> tel : ' + currentFeature.properties.phone + '</p>' +
+            '</div>'
         )
         .addTo(map);
 }
 
 
-function buildLocationList(data) {
-    for (i = 0; i < data.features.length; i++) {
-        var currentFeature = data.features[i];
+function buildLocationList() {
+
+    var commentsRef = firebase.database().ref('familles');
+    var i = 0;
+    commentsRef.on('child_added', function (data) {
+        var currentFeature = {
+            "type": "Feature",
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    data.val().position.lon,
+                    data.val().position.lat
+                ]
+            },
+            "properties": {
+                "nom": data.val().nom,
+                "prenom": data.val().prenom,
+                "phone": data.val().tel,
+                "address": data.val().adresse
+            }
+        };
+
+        stores.features.push(currentFeature);
+        var el = document.createElement('div');
+        el.id = "marker-" + i;
+        el.className = 'marker';
+        // Add markers to the map at all points
+        new mapboxgl.Marker(el, {offset: [0, -23]})
+            .setLngLat(currentFeature.geometry.coordinates)
+            .addTo(map);
+
+        el.addEventListener('click', function (e) {
+            // 1. Fly to the point
+            flyToStore(currentFeature);
+
+            // 2. Close all other popups and display popup for clicked store
+            createPopUp(currentFeature);
+
+            // 3. Highlight listing in sidebar (and remove highlight for all other listings)
+            var activeItem = document.getElementsByClassName('active');
+
+            e.stopPropagation();
+            if (activeItem[0]) {
+                activeItem[0].classList.remove('active');
+            }
+
+            var listing = document.getElementById('listing-' + i);
+            listing.classList.add('active');
+
+        });
         var prop = currentFeature.properties;
 
         var listings = document.getElementById('listings');
@@ -173,7 +180,8 @@ function buildLocationList(data) {
 
         link.addEventListener('click', function (e) {
             // Update the currentFeature to the store associated with the clicked link
-            var clickedListing = data.features[this.dataPosition];
+            var clickedListing = stores.features[this.dataPosition];
+            console.log(stores.features)
 
             // 1. Fly to the point
             flyToStore(clickedListing);
@@ -190,6 +198,75 @@ function buildLocationList(data) {
             this.parentNode.classList.add('active');
 
         });
+
+        i++;
+    });
+
+}
+
+
+function saveHome() {
+    var obj = {
+        nom: $("#nom").val(),
+        prenom: $("#prenom").val(),
+        tel: $("#tel").val(),
+        adresse: $("#adresse").val(),
+        position: {
+            lat: $("#lat").val(),
+            lon: $("#lon").val()
+        }
+    };
+
+    firebase.database().ref('familles').push().set(obj
+        , function (error) {
+            if (error) {
+                // The write failed...
+            } else {
+                // Data saved successfully!
+                $('#exampleModal').modal('hide');
+                alert("ajouté!");
+                var newmarker = document.getElementById('marker-new');
+                // noinspection EqualityComparisonWithCoercionJS
+                if (newmarker != undefined)
+                    newmarker.remove();
+
+                var popUps = document.getElementsByClassName('mapboxgl-popup');
+                if (popUps[0]) popUps[0].remove();
+            }
+        });
+}
+
+
+firebase.auth().onAuthStateChanged(function (user) {
+    if (user) {
+        // User is signed in.
+        document.getElementById("content").style.display = "block";
+        document.getElementById("login_div").style.display = "none";
+    } else {
+        // No user is signed in.
+        document.getElementById("content").style.display = "none";
+        document.getElementById("login_div").style.display = "block";
     }
+});
+
+function login() {
+
+    var userEmail = document.getElementById("email_field").value;
+    var userPass = document.getElementById("password_field").value;
+
+    firebase.auth().signInWithEmailAndPassword(userEmail, userPass).catch(function (error) {
+        // Handle Errors here.
+        var errorCode = error.code;
+        var errorMessage = error.message;
+
+        window.alert("Error : " + errorMessage);
+
+        // ...
+    });
+
+}
+
+function logout() {
+    firebase.auth().signOut();
 }
 
