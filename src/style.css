@@ -220,4 +220,10 @@ a:hover {
 
 
 
-
+#menu {
+    position: absolute;
+right: 0px;
+    background: #fff;
+    padding: 10px;
+    font-family: 'Open Sans', sans-serif;
+}

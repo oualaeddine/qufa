@@ -7,7 +7,7 @@ if (!('remove' in Element.prototype)) {
     };
 }
 
-mapboxgl.accessToken = 'pk.eyJ1IjoiZXhhbXBsZXMiLCJhIjoiY2lqbmpqazdlMDBsdnRva284cWd3bm11byJ9.V6Hg2oYJwMAxeoR9GEzkAA';
+mapboxgl.accessToken = 'pk.eyJ1Ijoib3VhbGEiLCJhIjoiY2p1czkxeTJsMXl6dTRkbXU5cTdpcWZnOCJ9.JFkAaaV7HSJ3E_gH1GiIBg';
 mapboxgl.setRTLTextPlugin('https://api.mapbox.com/mapbox-gl-js/plugins/mapbox-gl-rtl-text/v0.2.0/mapbox-gl-rtl-text.js');
 // This adds the map
 var map = new mapboxgl.Map({
@@ -270,3 +270,15 @@ function logout() {
     firebase.auth().signOut();
 }
 
+
+var layerList = document.getElementById('menu');
+var inputs = layerList.getElementsByTagName('input');
+
+function switchLayer(layer) {
+    var layerId = layer.target.id;
+    map.setStyle('mapbox://styles/mapbox/' + layerId);
+}
+
+for (var i = 0; i < inputs.length; i++) {
+    inputs[i].onclick = switchLayer;
+}
